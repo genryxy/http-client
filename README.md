@@ -27,7 +27,7 @@ and builds `ClientSlice` by specified protocol (HTTP or HTTPS), host and port.
 
 ```java
 ClientSlices slices = new JettyClientSlices();
-Slice slice = slices.slice("artipie.com", 80);
+Slice slice = slices.https("artipie.com");
 Response response = slice.request(
   "GET /index.html HTTP/1.1",
   Headers.EMPTY,
