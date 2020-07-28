@@ -23,18 +23,22 @@
  */
 package com.artipie.http.client.jetty;
 
+import com.artipie.asto.ext.PublisherAs;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.async.AsyncResponse;
 import com.artipie.http.rq.RequestLineFrom;
 import com.artipie.http.rs.StandardRs;
+import hu.akarnokd.rxjava2.interop.SingleInterop;
 import io.reactivex.Flowable;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
 import org.apache.http.client.utils.URIBuilder;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Request;
+import org.eclipse.jetty.client.util.BytesContentProvider;
 import org.eclipse.jetty.reactive.client.ReactiveRequest;
 import org.reactivestreams.Publisher;
 
@@ -97,11 +101,13 @@ final class JettyClientSlice implements Slice {
         final Publisher<ByteBuffer> body
     ) {
         return new AsyncResponse(
-            Flowable.fromPublisher(
-                ReactiveRequest.newBuilder(this.request(line)).build().response(
-                    (response, rsbody) -> Flowable.just(StandardRs.EMPTY)
-                )
-            ).singleOrError()
+            this.request(line, headers, body).thenCompose(
+                request -> Flowable.fromPublisher(
+                    ReactiveRequest.newBuilder(request).build().response(
+                        (response, rsbody) -> Flowable.just(StandardRs.EMPTY)
+                    )
+                ).singleOrError().to(SingleInterop.get())
+            )
         );
     }
 
@@ -109,9 +115,15 @@ final class JettyClientSlice implements Slice {
      * Create request.
      *
      * @param line Request line.
+     * @param headers Request headers.
+     * @param body Request body.
      * @return Request built from parameters.
      */
-    private Request request(final String line) {
+    private CompletionStage<Request> request(
+        final String line,
+        final Iterable<Map.Entry<String, String>> headers,
+        final Publisher<ByteBuffer> body
+    ) {
         final RequestLineFrom req = new RequestLineFrom(line);
         final String scheme;
         if (this.secure) {
@@ -120,7 +132,7 @@ final class JettyClientSlice implements Slice {
             scheme = "http";
         }
         final URI uri = req.uri();
-        return this.client.newRequest(
+        final Request request = this.client.newRequest(
             new URIBuilder()
                 .setScheme(scheme)
                 .setHost(this.host)
@@ -129,5 +141,19 @@ final class JettyClientSlice implements Slice {
                 .setCustomQuery(uri.getQuery())
                 .toString()
         ).method(req.method().value());
+        for (final Map.Entry<String, String> header : headers) {
+            request.header(header.getKey(), header.getValue());
+        }
+        return new PublisherAs(body).bytes().thenApply(
+            bytes -> {
+                final Request result;
+                if (bytes.length > 0) {
+                    result = request.content(new BytesContentProvider(bytes));
+                } else {
+                    result = request;
+                }
+                return result;
+            }
+        );
     }
 }
