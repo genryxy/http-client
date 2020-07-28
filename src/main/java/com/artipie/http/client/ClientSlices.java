@@ -33,7 +33,7 @@ import com.artipie.http.Slice;
 public interface ClientSlices {
 
     /**
-     * Create client slice sending HTTP requests to host specified on port 80.
+     * Create client slice sending HTTP requests to specified host on port 80.
      *
      * @param host Host name.
      * @return Client slice.
@@ -41,7 +41,7 @@ public interface ClientSlices {
     Slice http(String host);
 
     /**
-     * Create client slice sending HTTP requests to host specified.
+     * Create client slice sending HTTP requests to specified host.
      *
      * @param host Host name.
      * @param port Target port.
@@ -50,7 +50,7 @@ public interface ClientSlices {
     Slice http(String host, int port);
 
     /**
-     * Create client slice sending HTTPS requests to host specified on port 443.
+     * Create client slice sending HTTPS requests to specified host on port 443.
      *
      * @param host Host name.
      * @return Client slice.
@@ -58,7 +58,7 @@ public interface ClientSlices {
     Slice https(String host);
 
     /**
-     * Create client slice sending HTTPS requests to host specified.
+     * Create client slice sending HTTPS requests to specified host.
      *
      * @param host Host name.
      * @param port Target port.
