@@ -25,18 +25,49 @@ package com.artipie.http.client.jetty;
 
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
+import com.artipie.http.async.AsyncResponse;
+import com.artipie.http.rq.RequestLineFrom;
+import com.artipie.http.rs.StandardRs;
+import io.reactivex.Flowable;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import org.apache.http.client.utils.URIBuilder;
 import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.api.Request;
+import org.eclipse.jetty.reactive.client.ReactiveRequest;
 import org.reactivestreams.Publisher;
 
 /**
  * ClientSlices implementation using Jetty HTTP client as back-end.
  *
  * @since 0.1
+ * @todo #1:30min Test HTTPS connection with `JettyClientSlice`.
+ *  `JettyClientSlice` is tested with plain HTTP server which is started in tests.
+ *  However it should also be tested that class may work with HTTPS protocol as well.
+ *  Such tests should be added to the project.
  */
-@SuppressWarnings("PMD.UnusedFormalParameter")
 final class JettyClientSlice implements Slice {
+
+    /**
+     * HTTP client.
+     */
+    private final HttpClient client;
+
+    /**
+     * Secure connection flag.
+     */
+    private final boolean secure;
+
+    /**
+     * Host name.
+     */
+    private final String host;
+
+    /**
+     * Port.
+     */
+    private final int port;
 
     /**
      * Ctor.
@@ -53,7 +84,10 @@ final class JettyClientSlice implements Slice {
         final String host,
         final int port
     ) {
-        // nothing yet
+        this.client = client;
+        this.secure = secure;
+        this.host = host;
+        this.port = port;
     }
 
     @Override
@@ -62,6 +96,38 @@ final class JettyClientSlice implements Slice {
         final Iterable<Map.Entry<String, String>> headers,
         final Publisher<ByteBuffer> body
     ) {
-        throw new UnsupportedOperationException();
+        return new AsyncResponse(
+            Flowable.fromPublisher(
+                ReactiveRequest.newBuilder(this.request(line)).build().response(
+                    (response, rsbody) -> Flowable.just(StandardRs.EMPTY)
+                )
+            ).singleOrError()
+        );
+    }
+
+    /**
+     * Create request.
+     *
+     * @param line Request line.
+     * @return Request built from parameters.
+     */
+    private Request request(final String line) {
+        final RequestLineFrom req = new RequestLineFrom(line);
+        final String scheme;
+        if (this.secure) {
+            scheme = "https";
+        } else {
+            scheme = "http";
+        }
+        final URI uri = req.uri();
+        return this.client.newRequest(
+            new URIBuilder()
+                .setScheme(scheme)
+                .setHost(this.host)
+                .setPort(this.port)
+                .setPath(uri.getPath())
+                .setCustomQuery(uri.getQuery())
+                .toString()
+        ).method(req.method().value());
     }
 }
