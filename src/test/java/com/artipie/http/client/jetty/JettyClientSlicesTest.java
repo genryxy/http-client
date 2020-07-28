@@ -31,6 +31,11 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link JettyClientSlices}.
  *
  * @since 0.1
+ * @todo #1:30min Improve tests for `JettyClientSlices`.
+ *  Unit tests in `JettyClientSlicesTest` check that `JettyClientSlices` produce
+ *  `JettyClientSlice` instances, but do not check that they are configured
+ *  with expected host, port and secure flag.
+ *  These important properties should be covered with tests.
  */
 final class JettyClientSlicesTest {
 
