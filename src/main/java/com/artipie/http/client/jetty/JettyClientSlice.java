@@ -118,6 +118,12 @@ final class JettyClientSlice implements Slice {
      * @param headers Request headers.
      * @param body Request body.
      * @return Request built from parameters.
+     * @todo #1:30min Send request body in reactive way.
+     *  `JettyClientSlice` reads whole request body before sending. It is inefficient
+     *  for bigger requests. There is `ReactiveRequest.Content.fromPublisher` class in Jetty
+     *  client, but it seems to cause infinite blocks in tests.
+     *  Plus, it has other flows: adding mandatory `Content-Type` header
+     *  and `Transfer-Encoding: chunked`. So own implementation might be needed.
      */
     private CompletionStage<Request> request(
         final String line,
