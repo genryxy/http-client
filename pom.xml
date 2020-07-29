@@ -62,6 +62,11 @@ SOFTWARE.
       <artifactId>jetty-reactive-httpclient</artifactId>
       <version>1.1.4</version>
     </dependency>
+    <dependency>
+      <groupId>com.artipie</groupId>
+      <artifactId>asto</artifactId>
+      <version>0.23.3</version>
+    </dependency>
     <!-- Test only dependencies -->
     <dependency>
       <groupId>org.hamcrest</groupId>
@@ -92,12 +97,6 @@ SOFTWARE.
       <groupId>com.artipie</groupId>
       <artifactId>vertx-server</artifactId>
       <version>0.3.1</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.artipie</groupId>
-      <artifactId>asto</artifactId>
-      <version>0.23.3</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

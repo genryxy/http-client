@@ -23,19 +23,32 @@
  */
 package com.artipie.http.client.jetty;
 
+import com.artipie.asto.ext.PublisherAs;
 import com.artipie.http.Headers;
 import com.artipie.http.Slice;
+import com.artipie.http.async.AsyncResponse;
+import com.artipie.http.headers.Header;
+import com.artipie.http.rq.RequestLine;
+import com.artipie.http.rq.RqMethod;
 import com.artipie.http.rs.StandardRs;
 import com.artipie.vertx.VertxSliceServer;
 import io.reactivex.Flowable;
 import io.vertx.reactivex.core.Vertx;
+import java.nio.ByteBuffer;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.eclipse.jetty.client.HttpClient;
 import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
+import org.hamcrest.core.IsEqual;
+import org.hamcrest.core.StringContains;
 import org.hamcrest.core.StringStartsWith;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -43,6 +56,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests for {@link JettyClientSlice}.
  *
  * @since 0.1
+ * @checkstyle ClassDataAbstractionCouplingCheck (500 lines)
  */
 final class JettyClientSliceTest {
 
@@ -121,6 +135,60 @@ final class JettyClientSliceTest {
         MatcherAssert.assertThat(
             actual.get(),
             new StringStartsWith(false, String.format("%s HTTP", line))
+        );
+    }
+
+    @Test
+    void shouldSendHeaders() {
+        final AtomicReference<Iterable<Map.Entry<String, String>>> actual = new AtomicReference<>();
+        this.fake.set(
+            (rqline, rqheaders, rqbody) -> {
+                actual.set(new Headers.From(rqheaders));
+                return StandardRs.EMPTY;
+            }
+        );
+        this.slice.response(
+            new RequestLine(RqMethod.GET, "/something").toString(),
+            new Headers.From(
+                new Header("My-Header", "MyValue"),
+                new Header("Another-Header", "AnotherValue")
+            ),
+            Flowable.empty()
+        ).send((status, headers, body) -> CompletableFuture.allOf()).toCompletableFuture().join();
+        MatcherAssert.assertThat(
+            StreamSupport.stream(actual.get().spliterator(), false)
+                .map(Header::new)
+                .map(Header::toString)
+                .collect(Collectors.toList()),
+            Matchers.hasItems(
+                new StringContains(true, "My-Header: MyValue"),
+                new StringContains(true, "Another-Header: AnotherValue")
+            )
+        );
+    }
+
+    @Test
+    void shouldSendBody() {
+        final byte[] content = "some content".getBytes();
+        final AtomicReference<byte[]> actual = new AtomicReference<>();
+        this.fake.set(
+            (rqline, rqheaders, rqbody) -> new AsyncResponse(
+                new PublisherAs(rqbody).bytes().thenApply(
+                    bytes -> {
+                        actual.set(bytes);
+                        return StandardRs.EMPTY;
+                    }
+                )
+            )
+        );
+        this.slice.response(
+            new RequestLine(RqMethod.PUT, "/package").toString(),
+            Headers.EMPTY,
+            Flowable.just(ByteBuffer.wrap(content))
+        ).send((status, headers, body) -> CompletableFuture.allOf()).toCompletableFuture().join();
+        MatcherAssert.assertThat(
+            actual.get(),
+            new IsEqual<>(content)
         );
     }
 }
