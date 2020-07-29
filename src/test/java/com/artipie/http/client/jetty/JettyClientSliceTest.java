@@ -28,13 +28,22 @@ import com.artipie.http.Headers;
 import com.artipie.http.Slice;
 import com.artipie.http.async.AsyncResponse;
 import com.artipie.http.headers.Header;
+import com.artipie.http.hm.RsHasBody;
+import com.artipie.http.hm.RsHasHeaders;
+import com.artipie.http.hm.RsHasStatus;
 import com.artipie.http.rq.RequestLine;
 import com.artipie.http.rq.RqMethod;
+import com.artipie.http.rs.RsStatus;
+import com.artipie.http.rs.RsWithBody;
+import com.artipie.http.rs.RsWithHeaders;
+import com.artipie.http.rs.RsWithStatus;
 import com.artipie.http.rs.StandardRs;
 import com.artipie.vertx.VertxSliceServer;
 import io.reactivex.Flowable;
 import io.vertx.reactivex.core.Vertx;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -189,6 +198,58 @@ final class JettyClientSliceTest {
         MatcherAssert.assertThat(
             actual.get(),
             new IsEqual<>(content)
+        );
+    }
+
+    @Test
+    void shouldReceiveStatus() {
+        final RsStatus status = RsStatus.NOT_FOUND;
+        this.fake.set((rqline, rqheaders, rqbody) -> new RsWithStatus(status));
+        MatcherAssert.assertThat(
+            this.slice.response(
+                new RequestLine(RqMethod.GET, "/a/b/c").toString(),
+                Headers.EMPTY,
+                Flowable.empty()
+            ),
+            new RsHasStatus(status)
+        );
+    }
+
+    @Test
+    void shouldReceiveHeaders() {
+        final List<Map.Entry<String, String>> headers = Arrays.asList(
+            new Header("Content-Type", "text/plain"),
+            new Header("WWW-Authenticate", "Basic")
+        );
+        this.fake.set(
+            (rqline, rqheaders, rqbody) -> new RsWithHeaders(
+                StandardRs.EMPTY,
+                new Headers.From(headers)
+            )
+        );
+        MatcherAssert.assertThat(
+            this.slice.response(
+                new RequestLine(RqMethod.HEAD, "/content").toString(),
+                Headers.EMPTY,
+                Flowable.empty()
+            ),
+            new RsHasHeaders(headers)
+        );
+    }
+
+    @Test
+    void shouldReceiveBody() {
+        final byte[] data = "data".getBytes();
+        this.fake.set(
+            (rqline, rqheaders, rqbody) -> new RsWithBody(Flowable.just(ByteBuffer.wrap(data)))
+        );
+        MatcherAssert.assertThat(
+            this.slice.response(
+                new RequestLine(RqMethod.PATCH, "/file.txt").toString(),
+                Headers.EMPTY,
+                Flowable.empty()
+            ),
+            new RsHasBody(data)
         );
     }
 }

@@ -24,22 +24,27 @@
 package com.artipie.http.client.jetty;
 
 import com.artipie.asto.ext.PublisherAs;
+import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.async.AsyncResponse;
+import com.artipie.http.headers.Header;
 import com.artipie.http.rq.RequestLineFrom;
-import com.artipie.http.rs.StandardRs;
+import com.artipie.http.rs.RsFull;
+import com.artipie.http.rs.RsStatus;
 import hu.akarnokd.rxjava2.interop.SingleInterop;
 import io.reactivex.Flowable;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.BytesContentProvider;
 import org.eclipse.jetty.reactive.client.ReactiveRequest;
+import org.eclipse.jetty.reactive.client.ReactiveResponse;
 import org.reactivestreams.Publisher;
 
 /**
@@ -50,6 +55,7 @@ import org.reactivestreams.Publisher;
  *  `JettyClientSlice` is tested with plain HTTP server which is started in tests.
  *  However it should also be tested that class may work with HTTPS protocol as well.
  *  Such tests should be added to the project.
+ * @checkstyle ClassDataAbstractionCouplingCheck (500 lines)
  */
 final class JettyClientSlice implements Slice {
 
@@ -104,7 +110,13 @@ final class JettyClientSlice implements Slice {
             this.request(line, headers, body).thenCompose(
                 request -> Flowable.fromPublisher(
                     ReactiveRequest.newBuilder(request).build().response(
-                        (response, rsbody) -> Flowable.just(StandardRs.EMPTY)
+                        (response, rsbody) -> Flowable.just(
+                            new RsFull(
+                                new RsStatus.ByCode(response.getStatus()).find(),
+                                new ResponseHeaders(response),
+                                Flowable.fromPublisher(rsbody).map(chunk -> chunk.buffer)
+                            )
+                        )
                     )
                 ).singleOrError().to(SingleInterop.get())
             )
@@ -161,5 +173,28 @@ final class JettyClientSlice implements Slice {
                 return result;
             }
         );
+    }
+
+    /**
+     * Headers from {@link ReactiveResponse}.
+     *
+     * @since 0.1
+     */
+    private static class ResponseHeaders extends Headers.Wrap {
+
+        /**
+         * Ctor.
+         *
+         * @param response Response to extract headers from.
+         */
+        ResponseHeaders(final ReactiveResponse response) {
+            super(
+                new Headers.From(
+                    response.getHeaders().stream()
+                        .map(header -> new Header(header.getName(), header.getValue()))
+                        .collect(Collectors.toList())
+                )
+            );
+        }
     }
 }
