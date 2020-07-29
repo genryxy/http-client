@@ -93,4 +93,13 @@ final class SettingsTest {
             new IsEqual<>(value)
         );
     }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void withFollowRedirects(final boolean value) {
+        MatcherAssert.assertThat(
+            new Settings.WithFollowRedirects(value).followRedirects(),
+            new IsEqual<>(value)
+        );
+    }
 }
