@@ -148,6 +148,7 @@ public final class JettyClientSlices implements ClientSlices {
                 new HttpProxy(new Origin.Address(proxy.host(), proxy.port()), proxy.secure())
             )
         );
+        result.setFollowRedirects(settings.followRedirects());
         return result;
     }
 }
