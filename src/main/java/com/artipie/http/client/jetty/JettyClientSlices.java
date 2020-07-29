@@ -25,7 +25,10 @@ package com.artipie.http.client.jetty;
 
 import com.artipie.http.Slice;
 import com.artipie.http.client.ClientSlices;
+import com.artipie.http.client.Settings;
 import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.HttpProxy;
+import org.eclipse.jetty.client.Origin;
 
 /**
  * ClientSlices implementation using Jetty HTTP client as back-end.
@@ -56,7 +59,16 @@ public final class JettyClientSlices implements ClientSlices {
      * Ctor.
      */
     public JettyClientSlices() {
-        this.client = new HttpClient();
+        this(new Settings.Default());
+    }
+
+    /**
+     * Ctor.
+     *
+     * @param settings Settings.
+     */
+    public JettyClientSlices(final Settings settings) {
+        this.client = create(settings);
     }
 
     /**
@@ -107,5 +119,21 @@ public final class JettyClientSlices implements ClientSlices {
      */
     private Slice slice(final boolean secure, final String host, final int port) {
         return new JettyClientSlice(this.client, secure, host, port);
+    }
+
+    /**
+     * Creates {@link HttpClient} from {@link Settings}.
+     *
+     * @param settings Settings.
+     * @return HTTP client built from settings.
+     */
+    private static HttpClient create(final Settings settings) {
+        final HttpClient result = new HttpClient();
+        settings.proxy().ifPresent(
+            proxy -> result.getProxyConfiguration().getProxies().add(
+                new HttpProxy(new Origin.Address(proxy.host(), proxy.port()), proxy.secure())
+            )
+        );
+        return result;
     }
 }
