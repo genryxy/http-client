@@ -29,6 +29,7 @@ import com.artipie.http.client.Settings;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.HttpProxy;
 import org.eclipse.jetty.client.Origin;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 /**
  * ClientSlices implementation using Jetty HTTP client as back-end.
@@ -128,7 +129,7 @@ public final class JettyClientSlices implements ClientSlices {
      * @return HTTP client built from settings.
      */
     private static HttpClient create(final Settings settings) {
-        final HttpClient result = new HttpClient();
+        final HttpClient result = new HttpClient(new SslContextFactory.Client(settings.trustAll()));
         settings.proxy().ifPresent(
             proxy -> result.getProxyConfiguration().getProxies().add(
                 new HttpProxy(new Origin.Address(proxy.host(), proxy.port()), proxy.secure())
