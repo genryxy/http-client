@@ -56,16 +56,19 @@ final class SettingsTest {
         final boolean secure = true;
         final String host = "proxy.com";
         final int port = 8080;
-        final Settings.Proxy.From proxy = new Settings.Proxy.From(secure, host, port);
+        final Settings.Proxy.Simple proxy = new Settings.Proxy.Simple(secure, host, port);
         MatcherAssert.assertThat(
+            "Wrong secure flag",
             proxy.secure(),
             new IsEqual<>(secure)
         );
         MatcherAssert.assertThat(
+            "Wrong host",
             proxy.host(),
             new IsEqual<>(host)
         );
         MatcherAssert.assertThat(
+            "Wrong port",
             proxy.port(),
             new IsEqual<>(port)
         );
@@ -73,7 +76,7 @@ final class SettingsTest {
 
     @Test
     void withProxy() {
-        final Settings.Proxy proxy = new Settings.Proxy.From(false, "example.com", 80);
+        final Settings.Proxy proxy = new Settings.Proxy.Simple(false, "example.com", 80);
         MatcherAssert.assertThat(
             new Settings.WithProxy(new Settings.Default(), proxy).proxy(),
             new IsEqual<>(Optional.of(proxy))

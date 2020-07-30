@@ -77,11 +77,11 @@ public interface Settings {
         int port();
 
         /**
-         * Proxy settings from raw data.
+         * Simple proxy settings.
          *
          * @since 0.1
          */
-        final class From implements Proxy {
+        final class Simple implements Proxy {
 
             /**
              * Secure flag.
@@ -105,7 +105,7 @@ public interface Settings {
              * @param host Proxy host.
              * @param port Proxy port.
              */
-            public From(final boolean secure, final String host, final int port) {
+            public Simple(final boolean secure, final String host, final int port) {
                 this.secure = secure;
                 this.host = host;
                 this.port = port;
