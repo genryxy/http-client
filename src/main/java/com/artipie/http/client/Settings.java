@@ -75,5 +75,113 @@ public interface Settings {
          * @return Proxy port.
          */
         int port();
+
+        /**
+         * Simple proxy settings.
+         *
+         * @since 0.1
+         */
+        final class Simple implements Proxy {
+
+            /**
+             * Secure flag.
+             */
+            private final boolean secure;
+
+            /**
+             * Proxy host.
+             */
+            private final String host;
+
+            /**
+             * Proxy port.
+             */
+            private final int port;
+
+            /**
+             * Ctor.
+             *
+             * @param secure Secure flag.
+             * @param host Proxy host.
+             * @param port Proxy port.
+             */
+            public Simple(final boolean secure, final String host, final int port) {
+                this.secure = secure;
+                this.host = host;
+                this.port = port;
+            }
+
+            @Override
+            public boolean secure() {
+                return this.secure;
+            }
+
+            @Override
+            public String host() {
+                return this.host;
+            }
+
+            @Override
+            public int port() {
+                return this.port;
+            }
+        }
+    }
+
+    /**
+     * Default {@link Settings}.
+     *
+     * @since 0.1
+     */
+    final class Default implements Settings {
+
+        @Override
+        public Optional<Proxy> proxy() {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean trustAll() {
+            return false;
+        }
+    }
+
+    /**
+     * Settings that add proxy to origin {@link Settings}.
+     *
+     * @since 0.1
+     */
+    final class WithProxy implements Settings {
+
+        /**
+         * Origin settings.
+         */
+        private final Settings origin;
+
+        /**
+         * Proxy.
+         */
+        private final Proxy prx;
+
+        /**
+         * Ctor.
+         *
+         * @param origin Origin settings.
+         * @param prx Proxy.
+         */
+        public WithProxy(final Settings origin, final Proxy prx) {
+            this.origin = origin;
+            this.prx = prx;
+        }
+
+        @Override
+        public Optional<Proxy> proxy() {
+            return Optional.of(this.prx);
+        }
+
+        @Override
+        public boolean trustAll() {
+            return this.origin.trustAll();
+        }
     }
 }
