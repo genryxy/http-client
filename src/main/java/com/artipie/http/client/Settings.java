@@ -193,4 +193,52 @@ public interface Settings {
             return this.origin.trustAll();
         }
     }
+
+    /**
+     * Settings that add trust all setting to origin {@link Settings}.
+     *
+     * @since 0.1
+     */
+    final class WithTrustAll implements Settings {
+
+        /**
+         * Origin settings.
+         */
+        private final Settings origin;
+
+        /**
+         * Trust all setting.
+         */
+        private final boolean trust;
+
+        /**
+         * Ctor.
+         *
+         * @param trust Trust all setting.
+         */
+        public WithTrustAll(final boolean trust) {
+            this(new Settings.Default(), trust);
+        }
+
+        /**
+         * Ctor.
+         *
+         * @param origin Origin settings.
+         * @param trust Trust all setting.
+         */
+        public WithTrustAll(final Settings origin, final boolean trust) {
+            this.origin = origin;
+            this.trust = trust;
+        }
+
+        @Override
+        public Optional<Proxy> proxy() {
+            return this.origin.proxy();
+        }
+
+        @Override
+        public boolean trustAll() {
+            return this.trust;
+        }
+    }
 }

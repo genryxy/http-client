@@ -27,6 +27,8 @@ import java.util.Optional;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for {@link SettingsTest}.
@@ -80,6 +82,15 @@ final class SettingsTest {
         MatcherAssert.assertThat(
             new Settings.WithProxy(new Settings.Default(), proxy).proxy(),
             new IsEqual<>(Optional.of(proxy))
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void withTrustAll(final boolean value) {
+        MatcherAssert.assertThat(
+            new Settings.WithTrustAll(value).trustAll(),
+            new IsEqual<>(value)
         );
     }
 }
