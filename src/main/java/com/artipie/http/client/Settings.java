@@ -166,6 +166,15 @@ public interface Settings {
         /**
          * Ctor.
          *
+         * @param prx Proxy.
+         */
+        public WithProxy(final Proxy prx) {
+            this(new Settings.Default(), prx);
+        }
+
+        /**
+         * Ctor.
+         *
          * @param origin Origin settings.
          * @param prx Proxy.
          */
