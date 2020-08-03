@@ -48,6 +48,14 @@ public interface Settings {
     boolean trustAll();
 
     /**
+     * Determine if redirects should be followed.
+     *
+     * @return If redirects should be followed <code>true</code> is returned,
+     *  <code>false</code> - otherwise.
+     */
+    boolean followRedirects();
+
+    /**
      * Proxy settings.
      *
      * @since 0.1
@@ -144,6 +152,11 @@ public interface Settings {
         public boolean trustAll() {
             return false;
         }
+
+        @Override
+        public boolean followRedirects() {
+            return false;
+        }
     }
 
     /**
@@ -192,6 +205,11 @@ public interface Settings {
         public boolean trustAll() {
             return this.origin.trustAll();
         }
+
+        @Override
+        public boolean followRedirects() {
+            return this.origin.followRedirects();
+        }
     }
 
     /**
@@ -239,6 +257,64 @@ public interface Settings {
         @Override
         public boolean trustAll() {
             return this.trust;
+        }
+
+        @Override
+        public boolean followRedirects() {
+            return this.origin.followRedirects();
+        }
+    }
+
+    /**
+     * Settings that add follow redirect setting to origin {@link Settings}.
+     *
+     * @since 0.1
+     */
+    final class WithFollowRedirects implements Settings {
+
+        /**
+         * Origin settings.
+         */
+        private final Settings origin;
+
+        /**
+         * Follow redirect setting.
+         */
+        private final boolean redirect;
+
+        /**
+         * Ctor.
+         *
+         * @param redirect Follow redirect setting.
+         */
+        public WithFollowRedirects(final boolean redirect) {
+            this(new Settings.Default(), redirect);
+        }
+
+        /**
+         * Ctor.
+         *
+         * @param origin Origin settings.
+         * @param redirect Follow redirect setting.
+         */
+        public WithFollowRedirects(final Settings origin, final boolean redirect) {
+            this.origin = origin;
+            this.redirect = redirect;
+        }
+
+        @Override
+        public Optional<Proxy> proxy() {
+            return this.origin.proxy();
+        }
+
+        @Override
+        public boolean trustAll() {
+            return this.origin.trustAll();
+        }
+
+        @Override
+        public boolean followRedirects() {
+            return this.redirect;
         }
     }
 }
