@@ -54,6 +54,14 @@ final class SettingsTest {
     }
 
     @Test
+    void defaultFollowRedirects() {
+        MatcherAssert.assertThat(
+            new Settings.Default().followRedirects(),
+            new IsEqual<>(false)
+        );
+    }
+
+    @Test
     void proxyFrom() {
         final boolean secure = true;
         final String host = "proxy.com";
