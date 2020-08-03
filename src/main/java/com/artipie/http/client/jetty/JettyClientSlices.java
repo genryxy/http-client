@@ -54,7 +54,7 @@ public final class JettyClientSlices implements ClientSlices {
     /**
      * HTTP client.
      */
-    private final HttpClient client;
+    private final HttpClient clnt;
 
     /**
      * Ctor.
@@ -69,7 +69,16 @@ public final class JettyClientSlices implements ClientSlices {
      * @param settings Settings.
      */
     public JettyClientSlices(final Settings settings) {
-        this.client = create(settings);
+        this.clnt = create(settings);
+    }
+
+    /**
+     * Get HTTP client instance used by this class.
+     *
+     * @return HTTP client instance.
+     */
+    public HttpClient client() {
+        return this.clnt;
     }
 
     /**
@@ -78,7 +87,7 @@ public final class JettyClientSlices implements ClientSlices {
      * @throws Exception In case of any errors starting.
      */
     public void start() throws Exception {
-        this.client.start();
+        this.clnt.start();
     }
 
     /**
@@ -87,7 +96,7 @@ public final class JettyClientSlices implements ClientSlices {
      * @throws Exception In case of any errors stopping.
      */
     public void stop() throws Exception {
-        this.client.stop();
+        this.clnt.stop();
     }
 
     @Override
@@ -119,7 +128,7 @@ public final class JettyClientSlices implements ClientSlices {
      * @return Client slice.
      */
     private Slice slice(final boolean secure, final String host, final int port) {
-        return new JettyClientSlice(this.client, secure, host, port);
+        return new JettyClientSlice(this.clnt, secure, host, port);
     }
 
     /**
