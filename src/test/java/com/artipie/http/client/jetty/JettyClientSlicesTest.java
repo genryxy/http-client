@@ -24,18 +24,26 @@
 package com.artipie.http.client.jetty;
 
 import com.artipie.http.Headers;
+import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.client.Settings;
 import com.artipie.http.hm.RsHasBody;
+import com.artipie.http.hm.RsHasStatus;
 import com.artipie.http.rq.RequestLine;
 import com.artipie.http.rq.RqMethod;
+import com.artipie.http.rs.RsStatus;
 import com.artipie.http.rs.RsWithBody;
+import com.artipie.http.rs.RsWithHeaders;
+import com.artipie.http.rs.RsWithStatus;
 import com.artipie.vertx.VertxSliceServer;
 import io.reactivex.Flowable;
 import io.vertx.reactivex.core.Vertx;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicReference;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.IsInstanceOf;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -62,6 +70,47 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 final class JettyClientSlicesTest {
 
+    /**
+     * Vert.x instance used for test server.
+     */
+    private Vertx vertx;
+
+    /**
+     * Test server.
+     */
+    private VertxSliceServer server;
+
+    /**
+     * Reference to fake slice used in test.
+     */
+    private AtomicReference<Slice> fake;
+
+    /**
+     * Port of HTTP server.
+     */
+    private int port;
+
+    @BeforeEach
+    void setUp() {
+        this.fake = new AtomicReference<>();
+        this.vertx = Vertx.vertx();
+        this.server = new VertxSliceServer(
+            this.vertx,
+            (line, headers, body) -> this.fake.get().response(line, headers, body)
+        );
+        this.port = this.server.start();
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (this.vertx != null) {
+            this.vertx.close();
+        }
+        if (this.server != null) {
+            this.server.close();
+        }
+    }
+
     @Test
     void shouldProduceHttp() {
         MatcherAssert.assertThat(
@@ -72,9 +121,9 @@ final class JettyClientSlicesTest {
 
     @Test
     void shouldProduceHttpWithPort() {
-        final int port = 8080;
+        final int custom = 8080;
         MatcherAssert.assertThat(
-            new JettyClientSlices().http("localhost", port),
+            new JettyClientSlices().http("localhost", custom),
             new IsInstanceOf(JettyClientSlice.class)
         );
     }
@@ -89,9 +138,9 @@ final class JettyClientSlicesTest {
 
     @Test
     void shouldProduceHttpsWithPort() {
-        final int port = 9876;
+        final int custom = 9876;
         MatcherAssert.assertThat(
-            new JettyClientSlices().http("www.artipie.com", port),
+            new JettyClientSlices().http("www.artipie.com", custom),
             new IsInstanceOf(JettyClientSlice.class)
         );
     }
@@ -99,27 +148,87 @@ final class JettyClientSlicesTest {
     @Test
     void shouldSupportProxy() throws Exception {
         final byte[] response = "response from proxy".getBytes();
-        final Slice slice = (line, headers, body) -> new RsWithBody(
-            Flowable.just(ByteBuffer.wrap(response))
+        this.fake.set(
+            (line, headers, body) -> new RsWithBody(
+                Flowable.just(ByteBuffer.wrap(response))
+            )
         );
-        try (VertxSliceServer server = new VertxSliceServer(Vertx.vertx(), slice)) {
-            final int port = server.start();
-            final JettyClientSlices client = new JettyClientSlices(
-                new Settings.WithProxy(new Settings.Proxy.Simple(false, "localhost", port))
+        final JettyClientSlices client = new JettyClientSlices(
+            new Settings.WithProxy(new Settings.Proxy.Simple(false, "localhost", this.port))
+        );
+        try {
+            client.start();
+            MatcherAssert.assertThat(
+                client.http("artipie.com").response(
+                    new RequestLine(RqMethod.GET, "/").toString(),
+                    Headers.EMPTY,
+                    Flowable.empty()
+                ),
+                new RsHasBody(response)
             );
-            try {
-                client.start();
-                MatcherAssert.assertThat(
-                    client.http("artipie.com").response(
-                        new RequestLine(RqMethod.GET, "/").toString(),
-                        Headers.EMPTY,
-                        Flowable.empty()
-                    ),
-                    new RsHasBody(response)
-                );
-            } finally {
-                client.stop();
+        } finally {
+            client.stop();
+        }
+    }
+
+    @Test
+    void shouldNotFollowRedirectIfDisabled() throws Exception {
+        final RsStatus status = RsStatus.TEMPORARY_REDIRECT;
+        this.fake.set(
+            (line, headers, body) -> new RsWithHeaders(
+                new RsWithStatus(status),
+                "Location", "/other/path"
+            )
+        );
+        final JettyClientSlices client = new JettyClientSlices(
+            new Settings.WithFollowRedirects(false)
+        );
+        try {
+            client.start();
+            MatcherAssert.assertThat(
+                client.http("localhost", this.port).response(
+                    new RequestLine(RqMethod.GET, "/some/path").toString(),
+                    Headers.EMPTY,
+                    Flowable.empty()
+                ),
+                new RsHasStatus(status)
+            );
+        } finally {
+            client.stop();
+        }
+    }
+
+    @Test
+    void shouldFollowRedirectIfEnabled() throws Exception {
+        this.fake.set(
+            (line, headers, body) -> {
+                final Response result;
+                if (line.contains("target")) {
+                    result = new RsWithStatus(RsStatus.OK);
+                } else {
+                    result = new RsWithHeaders(
+                        new RsWithStatus(RsStatus.TEMPORARY_REDIRECT),
+                        "Location", "/target"
+                    );
+                }
+                return result;
             }
+        );
+        final JettyClientSlices client = new JettyClientSlices(
+            new Settings.WithFollowRedirects(true)
+        );
+        try {
+            client.start();
+            MatcherAssert.assertThat(
+                client.http("localhost", this.port).response(
+                    new RequestLine(RqMethod.GET, "/some/path").toString(),
+                    Headers.EMPTY,
+                    Flowable.empty()
+                ),
+                new RsHasStatus(RsStatus.OK)
+            );
+        } finally {
+            client.stop();
         }
     }
 }
