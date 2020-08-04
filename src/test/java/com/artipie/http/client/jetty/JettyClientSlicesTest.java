@@ -25,7 +25,7 @@ package com.artipie.http.client.jetty;
 
 import com.artipie.http.Headers;
 import com.artipie.http.Response;
-import com.artipie.http.Slice;
+import com.artipie.http.client.HttpServer;
 import com.artipie.http.client.Settings;
 import com.artipie.http.hm.RsHasBody;
 import com.artipie.http.hm.RsHasStatus;
@@ -35,11 +35,8 @@ import com.artipie.http.rs.RsStatus;
 import com.artipie.http.rs.RsWithBody;
 import com.artipie.http.rs.RsWithHeaders;
 import com.artipie.http.rs.RsWithStatus;
-import com.artipie.vertx.VertxSliceServer;
 import io.reactivex.Flowable;
-import io.vertx.reactivex.core.Vertx;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicReference;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.jupiter.api.AfterEach;
@@ -71,44 +68,18 @@ import org.junit.jupiter.api.Test;
 final class JettyClientSlicesTest {
 
     /**
-     * Vert.x instance used for test server.
-     */
-    private Vertx vertx;
-
-    /**
      * Test server.
      */
-    private VertxSliceServer server;
-
-    /**
-     * Reference to fake slice used in test.
-     */
-    private AtomicReference<Slice> fake;
-
-    /**
-     * Port of HTTP server.
-     */
-    private int port;
+    private final HttpServer server = new HttpServer();
 
     @BeforeEach
     void setUp() {
-        this.fake = new AtomicReference<>();
-        this.vertx = Vertx.vertx();
-        this.server = new VertxSliceServer(
-            this.vertx,
-            (line, headers, body) -> this.fake.get().response(line, headers, body)
-        );
-        this.port = this.server.start();
+        this.server.start();
     }
 
     @AfterEach
     void tearDown() {
-        if (this.vertx != null) {
-            this.vertx.close();
-        }
-        if (this.server != null) {
-            this.server.close();
-        }
+        this.server.stop();
     }
 
     @Test
@@ -148,13 +119,15 @@ final class JettyClientSlicesTest {
     @Test
     void shouldSupportProxy() throws Exception {
         final byte[] response = "response from proxy".getBytes();
-        this.fake.set(
+        this.server.update(
             (line, headers, body) -> new RsWithBody(
                 Flowable.just(ByteBuffer.wrap(response))
             )
         );
         final JettyClientSlices client = new JettyClientSlices(
-            new Settings.WithProxy(new Settings.Proxy.Simple(false, "localhost", this.port))
+            new Settings.WithProxy(
+                new Settings.Proxy.Simple(false, "localhost", this.server.port())
+            )
         );
         try {
             client.start();
@@ -174,7 +147,7 @@ final class JettyClientSlicesTest {
     @Test
     void shouldNotFollowRedirectIfDisabled() throws Exception {
         final RsStatus status = RsStatus.TEMPORARY_REDIRECT;
-        this.fake.set(
+        this.server.update(
             (line, headers, body) -> new RsWithHeaders(
                 new RsWithStatus(status),
                 "Location", "/other/path"
@@ -186,7 +159,7 @@ final class JettyClientSlicesTest {
         try {
             client.start();
             MatcherAssert.assertThat(
-                client.http("localhost", this.port).response(
+                client.http("localhost", this.server.port()).response(
                     new RequestLine(RqMethod.GET, "/some/path").toString(),
                     Headers.EMPTY,
                     Flowable.empty()
@@ -200,7 +173,7 @@ final class JettyClientSlicesTest {
 
     @Test
     void shouldFollowRedirectIfEnabled() throws Exception {
-        this.fake.set(
+        this.server.update(
             (line, headers, body) -> {
                 final Response result;
                 if (line.contains("target")) {
@@ -220,7 +193,7 @@ final class JettyClientSlicesTest {
         try {
             client.start();
             MatcherAssert.assertThat(
-                client.http("localhost", this.port).response(
+                client.http("localhost", this.server.port()).response(
                     new RequestLine(RqMethod.GET, "/some/path").toString(),
                     Headers.EMPTY,
                     Flowable.empty()
