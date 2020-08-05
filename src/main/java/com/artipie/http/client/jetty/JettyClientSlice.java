@@ -37,7 +37,9 @@ import io.reactivex.Flowable;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
 import org.eclipse.jetty.client.HttpClient;
@@ -111,11 +113,26 @@ final class JettyClientSlice implements Slice {
                 request -> Flowable.fromPublisher(
                     ReactiveRequest.newBuilder(request).build().response(
                         (response, rsbody) -> Flowable.just(
-                            new RsFull(
-                                new RsStatus.ByCode(response.getStatus()).find(),
-                                new ResponseHeaders(response),
-                                Flowable.fromPublisher(rsbody).map(chunk -> chunk.buffer)
-                            )
+                            (Response) connection -> {
+                                final ClosablePublisher closable = new ClosablePublisher(rsbody);
+                                final RsFull origin = new RsFull(
+                                    new RsStatus.ByCode(response.getStatus()).find(),
+                                    new ResponseHeaders(response),
+                                    Flowable.fromPublisher(closable).map(chunk -> chunk.buffer)
+                                );
+                                return origin.send(connection).handle(
+                                    (nothing, throwable) -> {
+                                        final CompletableFuture<Void> original;
+                                        if (throwable == null) {
+                                            original = CompletableFuture.allOf();
+                                        } else {
+                                            original = new CompletableFuture<>();
+                                            original.completeExceptionally(throwable);
+                                        }
+                                        return closable.close().thenCompose(nthng -> original);
+                                    }
+                                ).thenCompose(Function.identity());
+                            }
                         )
                     )
                 ).singleOrError().to(SingleInterop.get())
