@@ -37,7 +37,6 @@ import java.util.concurrent.TimeUnit;
 import org.eclipse.jetty.client.HttpClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -81,7 +80,6 @@ final class JettyClientSliceLeakTest {
     }
 
     @Test
-    @Disabled
     void shouldNotLeakConnectionsIfBodyNotRead() throws Exception {
         final int total = 1025;
         for (int count = 0; count < total; count += 1) {
@@ -96,7 +94,6 @@ final class JettyClientSliceLeakTest {
     }
 
     @Test
-    @Disabled
     void shouldNotLeakConnectionsIfSendFails() throws Exception {
         final int total = 1025;
         for (int count = 0; count < total; count += 1) {
