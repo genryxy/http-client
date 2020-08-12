@@ -24,6 +24,7 @@
 package com.artipie.http.client;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Client slices settings.
@@ -54,6 +55,14 @@ public interface Settings {
      *  <code>false</code> - otherwise.
      */
     boolean followRedirects();
+
+    /**
+     * The max time, in milliseconds, a connection can be idle (no incoming or outgoing traffic).
+     * Zero means infinite wait time.
+     *
+     * @return Idle timeout in milliseconds.
+     */
+    long idleTimeout();
 
     /**
      * Proxy settings.
@@ -157,6 +166,11 @@ public interface Settings {
         public boolean followRedirects() {
             return false;
         }
+
+        @Override
+        public long idleTimeout() {
+            return 0L;
+        }
     }
 
     /**
@@ -209,6 +223,11 @@ public interface Settings {
         @Override
         public boolean followRedirects() {
             return this.origin.followRedirects();
+        }
+
+        @Override
+        public long idleTimeout() {
+            return this.origin.idleTimeout();
         }
     }
 
@@ -263,6 +282,11 @@ public interface Settings {
         public boolean followRedirects() {
             return this.origin.followRedirects();
         }
+
+        @Override
+        public long idleTimeout() {
+            return this.origin.idleTimeout();
+        }
     }
 
     /**
@@ -315,6 +339,90 @@ public interface Settings {
         @Override
         public boolean followRedirects() {
             return this.redirect;
+        }
+
+        @Override
+        public long idleTimeout() {
+            return this.origin.idleTimeout();
+        }
+    }
+
+    /**
+     * Settings that add idle timeout setting to origin {@link Settings}.
+     *
+     * @since 0.2
+     */
+    final class WithIdleTimeout implements Settings {
+
+        /**
+         * Origin settings.
+         */
+        private final Settings origin;
+
+        /**
+         * Idle timeout setting.
+         */
+        private final long millis;
+
+        /**
+         * Ctor.
+         *
+         * @param timeout Idle timeout.
+         * @param unit The time unit of the timeout argument.
+         */
+        public WithIdleTimeout(final long timeout, final TimeUnit unit) {
+            this(unit.toMillis(timeout));
+        }
+
+        /**
+         * Ctor.
+         *
+         * @param origin Origin settings.
+         * @param timeout Idle timeout.
+         * @param unit The time unit of the timeout argument.
+         */
+        public WithIdleTimeout(final Settings origin, final long timeout, final TimeUnit unit) {
+            this(origin, unit.toMillis(timeout));
+        }
+
+        /**
+         * Ctor.
+         *
+         * @param millis Idle timeout in milliseconds.
+         */
+        public WithIdleTimeout(final long millis) {
+            this(new Settings.Default(), millis);
+        }
+
+        /**
+         * Ctor.
+         *
+         * @param origin Origin settings.
+         * @param millis Idle timeout setting.
+         */
+        public WithIdleTimeout(final Settings origin, final long millis) {
+            this.origin = origin;
+            this.millis = millis;
+        }
+
+        @Override
+        public Optional<Proxy> proxy() {
+            return this.origin.proxy();
+        }
+
+        @Override
+        public boolean trustAll() {
+            return this.origin.trustAll();
+        }
+
+        @Override
+        public boolean followRedirects() {
+            return this.origin.followRedirects();
+        }
+
+        @Override
+        public long idleTimeout() {
+            return this.millis;
         }
     }
 }

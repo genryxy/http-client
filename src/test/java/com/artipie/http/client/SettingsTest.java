@@ -24,6 +24,7 @@
 package com.artipie.http.client;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests for {@link SettingsTest}.
  *
  * @since 0.1
+ * @checkstyle MagicNumberCheck (500 lines)
  */
 final class SettingsTest {
 
@@ -58,6 +60,14 @@ final class SettingsTest {
         MatcherAssert.assertThat(
             new Settings.Default().followRedirects(),
             new IsEqual<>(false)
+        );
+    }
+
+    @Test
+    void defaultIdleTimeout() {
+        MatcherAssert.assertThat(
+            new Settings.Default().idleTimeout(),
+            new IsEqual<>(0L)
         );
     }
 
@@ -108,6 +118,23 @@ final class SettingsTest {
         MatcherAssert.assertThat(
             new Settings.WithFollowRedirects(value).followRedirects(),
             new IsEqual<>(value)
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 10, 20_000})
+    void withIdleTimeout(final long value) {
+        MatcherAssert.assertThat(
+            new Settings.WithIdleTimeout(value).idleTimeout(),
+            new IsEqual<>(value)
+        );
+    }
+
+    @Test
+    void withIdleTimeoutInSeconds() {
+        MatcherAssert.assertThat(
+            new Settings.WithIdleTimeout(5, TimeUnit.SECONDS).idleTimeout(),
+            new IsEqual<>(5_000L)
         );
     }
 }
