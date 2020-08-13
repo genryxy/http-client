@@ -36,7 +36,9 @@ import org.junit.jupiter.params.provider.ValueSource;
  *
  * @since 0.1
  * @checkstyle MagicNumberCheck (500 lines)
+ * @checkstyle ClassDataAbstractionCouplingCheck (500 lines)
  */
+@SuppressWarnings("PMD.TooManyMethods")
 final class SettingsTest {
 
     @Test
@@ -60,6 +62,15 @@ final class SettingsTest {
         MatcherAssert.assertThat(
             new Settings.Default().followRedirects(),
             new IsEqual<>(false)
+        );
+    }
+
+    @Test
+    void defaultConnectTimeout() {
+        final long millis = 15_000L;
+        MatcherAssert.assertThat(
+            new Settings.Default().connectTimeout(),
+            new IsEqual<>(millis)
         );
     }
 
@@ -118,6 +129,23 @@ final class SettingsTest {
         MatcherAssert.assertThat(
             new Settings.WithFollowRedirects(value).followRedirects(),
             new IsEqual<>(value)
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 10, 20_000})
+    void withConnectTimeout(final long value) {
+        MatcherAssert.assertThat(
+            new Settings.WithConnectTimeout(value).connectTimeout(),
+            new IsEqual<>(value)
+        );
+    }
+
+    @Test
+    void withConnectTimeoutInSeconds() {
+        MatcherAssert.assertThat(
+            new Settings.WithConnectTimeout(5, TimeUnit.SECONDS).connectTimeout(),
+            new IsEqual<>(5_000L)
         );
     }
 
