@@ -149,6 +149,7 @@ public final class JettyClientSlices implements ClientSlices {
             )
         );
         result.setFollowRedirects(settings.followRedirects());
+        result.setIdleTimeout(settings.idleTimeout());
         return result;
     }
 }
