@@ -23,6 +23,7 @@
  */
 package com.artipie.http.client.jetty;
 
+import com.artipie.asto.Content;
 import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.client.HttpServer;
@@ -37,9 +38,15 @@ import com.artipie.http.rs.RsWithHeaders;
 import com.artipie.http.rs.RsWithStatus;
 import io.reactivex.Flowable;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.IsInstanceOf;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +71,7 @@ import org.junit.jupiter.api.Test;
  *  to such server.
  * @checkstyle ClassDataAbstractionCouplingCheck (500 lines)
  */
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 final class JettyClientSlicesTest {
 
     /**
@@ -199,6 +206,61 @@ final class JettyClientSlicesTest {
                     Flowable.empty()
                 ),
                 new RsHasStatus(RsStatus.OK)
+            );
+        } finally {
+            client.stop();
+        }
+    }
+
+    @Test
+    void shouldTimeoutIdleConnectionIfEnabled() throws Exception {
+        final int timeout = 1;
+        this.server.update((line, headers, body) -> connection -> new CompletableFuture<>());
+        final JettyClientSlices client = new JettyClientSlices(
+            new Settings.WithIdleTimeout(new Settings.Default(), timeout, TimeUnit.SECONDS)
+        );
+        try {
+            client.start();
+            final CompletionStage<Void> received = client.http(
+                "localhost",
+                this.server.port()
+            ).response(
+                new RequestLine(RqMethod.GET, "/idle-timeout").toString(),
+                Headers.EMPTY,
+                Content.EMPTY
+            ).send(
+                (status, headers, body) -> CompletableFuture.allOf()
+            );
+            Assertions.assertThrows(
+                ExecutionException.class,
+                () -> received.toCompletableFuture().get(timeout + 1, TimeUnit.SECONDS)
+            );
+        } finally {
+            client.stop();
+        }
+    }
+
+    @Test
+    void shouldNotTimeoutIdleConnectionIfDisabled() throws Exception {
+        this.server.update((line, headers, body) -> connection -> new CompletableFuture<>());
+        final JettyClientSlices client = new JettyClientSlices(
+            new Settings.WithIdleTimeout(0)
+        );
+        try {
+            client.start();
+            final CompletionStage<Void> received = client.http(
+                "localhost",
+                this.server.port()
+            ).response(
+                new RequestLine(RqMethod.GET, "/idle-timeout").toString(),
+                Headers.EMPTY,
+                Content.EMPTY
+            ).send(
+                (status, headers, body) -> CompletableFuture.allOf()
+            );
+            Assertions.assertThrows(
+                TimeoutException.class,
+                () -> received.toCompletableFuture().get(1, TimeUnit.SECONDS)
             );
         } finally {
             client.stop();
