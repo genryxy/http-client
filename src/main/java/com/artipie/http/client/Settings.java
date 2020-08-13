@@ -57,6 +57,14 @@ public interface Settings {
     boolean followRedirects();
 
     /**
+     * Max time, in milliseconds, a connection can take to connect to destination.
+     * Zero means infinite wait time.
+     *
+     * @return Connect timeout in milliseconds.
+     */
+    long connectTimeout();
+
+    /**
      * The max time, in milliseconds, a connection can be idle (no incoming or outgoing traffic).
      * Zero means infinite wait time.
      *
@@ -168,6 +176,12 @@ public interface Settings {
         }
 
         @Override
+        public long connectTimeout() {
+            // @checkstyle MagicNumberCheck (1 line)
+            return 15_000L;
+        }
+
+        @Override
         public long idleTimeout() {
             return 0L;
         }
@@ -223,6 +237,11 @@ public interface Settings {
         @Override
         public boolean followRedirects() {
             return this.origin.followRedirects();
+        }
+
+        @Override
+        public long connectTimeout() {
+            return this.origin.connectTimeout();
         }
 
         @Override
@@ -284,6 +303,11 @@ public interface Settings {
         }
 
         @Override
+        public long connectTimeout() {
+            return this.origin.connectTimeout();
+        }
+
+        @Override
         public long idleTimeout() {
             return this.origin.idleTimeout();
         }
@@ -339,6 +363,95 @@ public interface Settings {
         @Override
         public boolean followRedirects() {
             return this.redirect;
+        }
+
+        @Override
+        public long connectTimeout() {
+            return this.origin.connectTimeout();
+        }
+
+        @Override
+        public long idleTimeout() {
+            return this.origin.idleTimeout();
+        }
+    }
+
+    /**
+     * Settings that add connect timeout setting to origin {@link Settings}.
+     *
+     * @since 0.2
+     */
+    final class WithConnectTimeout implements Settings {
+
+        /**
+         * Origin settings.
+         */
+        private final Settings origin;
+
+        /**
+         * Connect timeout setting.
+         */
+        private final long millis;
+
+        /**
+         * Ctor.
+         *
+         * @param timeout Connect timeout.
+         * @param unit The time unit of the timeout argument.
+         */
+        public WithConnectTimeout(final long timeout, final TimeUnit unit) {
+            this(unit.toMillis(timeout));
+        }
+
+        /**
+         * Ctor.
+         *
+         * @param origin Origin settings.
+         * @param timeout Connect timeout.
+         * @param unit The time unit of the timeout argument.
+         */
+        public WithConnectTimeout(final Settings origin, final long timeout, final TimeUnit unit) {
+            this(origin, unit.toMillis(timeout));
+        }
+
+        /**
+         * Ctor.
+         *
+         * @param millis Connect timeout in milliseconds.
+         */
+        public WithConnectTimeout(final long millis) {
+            this(new Settings.Default(), millis);
+        }
+
+        /**
+         * Ctor.
+         *
+         * @param origin Origin settings.
+         * @param millis Connect timeout setting.
+         */
+        public WithConnectTimeout(final Settings origin, final long millis) {
+            this.origin = origin;
+            this.millis = millis;
+        }
+
+        @Override
+        public Optional<Proxy> proxy() {
+            return this.origin.proxy();
+        }
+
+        @Override
+        public boolean trustAll() {
+            return this.origin.trustAll();
+        }
+
+        @Override
+        public boolean followRedirects() {
+            return this.origin.followRedirects();
+        }
+
+        @Override
+        public long connectTimeout() {
+            return this.millis;
         }
 
         @Override
@@ -418,6 +531,11 @@ public interface Settings {
         @Override
         public boolean followRedirects() {
             return this.origin.followRedirects();
+        }
+
+        @Override
+        public long connectTimeout() {
+            return this.origin.connectTimeout();
         }
 
         @Override
