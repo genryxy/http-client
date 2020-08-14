@@ -213,6 +213,58 @@ final class JettyClientSlicesTest {
     }
 
     @Test
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
+    void shouldTimeoutConnectionIfDisabled() throws Exception {
+        final int timeout = 1;
+        final JettyClientSlices client = new JettyClientSlices(
+            new Settings.WithConnectTimeout(0)
+        );
+        try {
+            client.start();
+            final String nonroutable = "10.0.0.0";
+            final CompletionStage<Void> received = client.http(nonroutable).response(
+                new RequestLine(RqMethod.GET, "/conn-timeout").toString(),
+                Headers.EMPTY,
+                Content.EMPTY
+            ).send(
+                (status, headers, body) -> CompletableFuture.allOf()
+            );
+            Assertions.assertThrows(
+                TimeoutException.class,
+                () -> received.toCompletableFuture().get(timeout + 1, TimeUnit.SECONDS)
+            );
+        } finally {
+            client.stop();
+        }
+    }
+
+    @Test
+    @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
+    void shouldTimeoutConnectionIfEnabled() throws Exception {
+        final int timeout = 5;
+        final JettyClientSlices client = new JettyClientSlices(
+            new Settings.WithConnectTimeout(timeout, TimeUnit.SECONDS)
+        );
+        try {
+            client.start();
+            final String nonroutable = "10.0.0.0";
+            final CompletionStage<Void> received = client.http(nonroutable).response(
+                new RequestLine(RqMethod.GET, "/conn-timeout").toString(),
+                Headers.EMPTY,
+                Content.EMPTY
+            ).send(
+                (status, headers, body) -> CompletableFuture.allOf()
+            );
+            Assertions.assertThrows(
+                ExecutionException.class,
+                () -> received.toCompletableFuture().get(timeout + 1, TimeUnit.SECONDS)
+            );
+        } finally {
+            client.stop();
+        }
+    }
+
+    @Test
     void shouldTimeoutIdleConnectionIfEnabled() throws Exception {
         final int timeout = 1;
         this.server.update((line, headers, body) -> connection -> new CompletableFuture<>());
