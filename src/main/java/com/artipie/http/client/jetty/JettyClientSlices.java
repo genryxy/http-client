@@ -149,6 +149,18 @@ public final class JettyClientSlices implements ClientSlices {
             )
         );
         result.setFollowRedirects(settings.followRedirects());
+        if (settings.connectTimeout() <= 0) {
+            /* @checkstyle MethodBodyCommentsCheck (1 line)
+             * Jetty client does not treat zero value as infinite timeout in non-blocking mode.
+             * Instead it timeouts the connection instantly.
+             * That has been tested in version org.eclipse.jetty:jetty-client:9.4.30.v20200611.
+             * See "org.eclipse.jetty.io.ManagedSelector.Connect" class constructor
+             * and "run()" method for details.
+             * Issue was reported, see https://github.com/eclipse/jetty.project/issues/5150
+             */
+            result.setConnectBlocking(true);
+        }
+        result.setConnectTimeout(settings.connectTimeout());
         result.setIdleTimeout(settings.idleTimeout());
         return result;
     }
