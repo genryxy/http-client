@@ -35,6 +35,7 @@ import com.artipie.http.rs.RsFull;
 import com.artipie.http.rs.RsStatus;
 import com.artipie.http.slice.LoggingSlice;
 import com.artipie.vertx.VertxSliceServer;
+import io.reactivex.Flowable;
 import io.vertx.reactivex.core.Vertx;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -42,11 +43,12 @@ import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import org.cactoos.text.TextOf;
 import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.reactivestreams.Publisher;
 
@@ -56,7 +58,6 @@ import org.reactivestreams.Publisher;
  * @since 0.3
  * @checkstyle ClassDataAbstractionCouplingCheck (500 lines)
  */
-@Disabled
 final class JettyClientSlicesAndVertxITCase {
 
     /**
@@ -101,9 +102,16 @@ final class JettyClientSlicesAndVertxITCase {
             new URL(String.format("http://localhost:%s", this.port)).openConnection();
         con.setRequestMethod("GET");
         MatcherAssert.assertThat(
+            "Response status is 200",
             con.getResponseCode(),
             new IsEqual<>(Integer.parseInt(RsStatus.OK.code()))
         );
+        MatcherAssert.assertThat(
+            "Response body is some html",
+            new TextOf(con.getInputStream()).asString(),
+            Matchers.startsWith("<!DOCTYPE html>")
+        );
+        con.disconnect();
     }
 
     /**
@@ -132,20 +140,23 @@ final class JettyClientSlicesAndVertxITCase {
             final Publisher<ByteBuffer> pub
         ) {
             final CompletableFuture<Response> promise = new CompletableFuture<>();
-            return new AsyncResponse(
-                this.client.https("yandex.ru").response(
-                    new RequestLine(
-                        RqMethod.GET, "/"
-                    ).toString(),
-                    Headers.EMPTY,
-                    Content.EMPTY
-                ).send(
-                    (status, rsheaders, body) -> {
-                        promise.complete(new RsFull(status, rsheaders, body));
-                        return CompletableFuture.allOf();
-                    }
-                ).thenCompose(ignored -> promise)
+            this.client.https("yandex.ru").response(
+                new RequestLine(
+                    RqMethod.GET, "/"
+                ).toString(),
+                Headers.EMPTY,
+                Content.EMPTY
+            ).send(
+                (status, rsheaders, body) -> {
+                    final CompletableFuture<Void> terminated = new CompletableFuture<>();
+                    final Flowable<ByteBuffer> termbody = Flowable.fromPublisher(body)
+                        .doOnError(terminated::completeExceptionally)
+                        .doOnTerminate(() -> terminated.complete(null));
+                    promise.complete(new RsFull(status, rsheaders, termbody));
+                    return terminated;
+                }
             );
+            return new AsyncResponse(promise);
         }
     }
 }
