@@ -33,30 +33,47 @@ import com.artipie.http.rs.StandardRs;
 import java.util.concurrent.CompletableFuture;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.IsEqual;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Tests for {@link PathPrefixSlice}.
  *
  * @since 0.3
+ * @checkstyle ParameterNumberCheck (500 lines)
  */
 final class PathPrefixSliceTest {
 
-    @Test
-    void shouldAddPrefixToPathAndPreserveEverythingElse() {
+    @ParameterizedTest
+    @CsvSource({
+        "'',/,/,",
+        "/prefix,/,/prefix/,",
+        "/a/b/c,/d/e/f,/a/b/c/d/e/f,",
+        "/my/repo,/123/file.txt?param1=foo&param2=bar,/my/repo/123/file.txt,param1=foo&param2=bar",
+        "/aaa/bbb,/%26/file.txt?p=%20%20,/aaa/bbb/%26/file.txt,p=%20%20"
+    })
+    @SuppressWarnings("PMD.UseObjectForClearerAPI")
+    void shouldAddPrefixToPathAndPreserveEverythingElse(
+        final String prefix, final String line, final String path, final String query
+    ) {
         final RqMethod method = RqMethod.GET;
         final Headers headers = new Headers.From("X-Header", "The Value");
         final byte[] body = "request body".getBytes();
         new PathPrefixSlice(
-            (line, rqheaders, rqbody) -> {
+            (rsline, rqheaders, rqbody) -> {
                 MatcherAssert.assertThat(
-                    "Path is prefixed",
-                    new RequestLineFrom(line).uri().getPath(),
-                    new IsEqual<>("/prefix/path")
+                    "Path is modified",
+                    new RequestLineFrom(rsline).uri().getRawPath(),
+                    new IsEqual<>(path)
+                );
+                MatcherAssert.assertThat(
+                    "Query is preserved",
+                    new RequestLineFrom(rsline).uri().getRawQuery(),
+                    new IsEqual<>(query)
                 );
                 MatcherAssert.assertThat(
                     "Method is preserved",
-                    new RequestLineFrom(line).method(),
+                    new RequestLineFrom(rsline).method(),
                     new IsEqual<>(method)
                 );
                 MatcherAssert.assertThat(
@@ -71,9 +88,9 @@ final class PathPrefixSliceTest {
                 );
                 return StandardRs.OK;
             },
-            "/prefix"
+            prefix
         ).response(
-            new RequestLine(method, "/path").toString(),
+            new RequestLine(method, line).toString(),
             headers,
             new Content.From(body)
         ).send(

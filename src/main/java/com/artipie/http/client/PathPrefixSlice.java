@@ -30,7 +30,6 @@ import com.artipie.http.rq.RequestLineFrom;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Map;
-import org.apache.http.client.utils.URIBuilder;
 import org.reactivestreams.Publisher;
 
 /**
@@ -68,15 +67,20 @@ public final class PathPrefixSlice implements Slice {
         final Publisher<ByteBuffer> body
     ) {
         final RequestLineFrom rqline = new RequestLineFrom(line);
-        final URI uri = rqline.uri();
+        final URI original = rqline.uri();
+        final String uri;
+        if (original.getRawQuery() == null) {
+            uri = String.format("%s%s", this.prefix, original.getRawPath());
+        } else {
+            uri = String.format(
+                "%s%s?%s",
+                this.prefix,
+                original.getRawPath(),
+                original.getRawQuery()
+            );
+        }
         return this.origin.response(
-            new RequestLine(
-                rqline.method().value(),
-                new URIBuilder(uri)
-                    .setPath(String.format("%s%s", this.prefix, uri.getPath()))
-                    .toString(),
-                rqline.version()
-            ).toString(),
+            new RequestLine(rqline.method().value(), uri, rqline.version()).toString(),
             headers,
             body
         );
