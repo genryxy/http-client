@@ -88,8 +88,8 @@ public class HttpServer {
      * Stop the server releasing all resources.
      */
     public void stop() {
-        this.vertx.close();
         this.server.close();
+        this.vertx.close();
     }
 
     /**
