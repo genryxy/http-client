@@ -26,11 +26,10 @@ package com.artipie.http.client.auth;
 import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
-import com.artipie.http.async.AsyncResponse;
 import com.artipie.http.rs.RsStatus;
 import java.nio.ByteBuffer;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.reactivestreams.Publisher;
 
 /**
@@ -66,28 +65,24 @@ public final class AuthClientSlice implements Slice {
         final String line,
         final Iterable<Map.Entry<String, String>> headers,
         final Publisher<ByteBuffer> body) {
-        final CompletableFuture<Response> promise = new CompletableFuture<>();
-        return new AsyncResponse(
-            this.origin.response(
-                line,
-                new Headers.From(headers, this.auth.authenticate(Headers.EMPTY)),
-                body
-            ).send(
-                (rsstatus, rsheaders, rsbody) -> {
-                    final Response response;
-                    if (rsstatus == RsStatus.UNAUTHORIZED) {
-                        response = this.origin.response(
-                            line,
-                            new Headers.From(headers, this.auth.authenticate(rsheaders)),
-                            body
-                        );
-                    } else {
-                        response = connection -> connection.accept(rsstatus, rsheaders, rsbody);
-                    }
-                    promise.complete(response);
-                    return CompletableFuture.allOf();
+        return connection -> this.origin.response(
+            line,
+            new Headers.From(headers, this.auth.authenticate(Headers.EMPTY)),
+            body
+        ).send(
+            (rsstatus, rsheaders, rsbody) -> {
+                final CompletionStage<Void> sent;
+                if (rsstatus == RsStatus.UNAUTHORIZED) {
+                    sent = this.origin.response(
+                        line,
+                        new Headers.From(headers, this.auth.authenticate(rsheaders)),
+                        body
+                    ).send(connection);
+                } else {
+                    sent = connection.accept(rsstatus, rsheaders, rsbody);
                 }
-            ).thenCompose(nothing -> promise)
+                return sent;
+            }
         );
     }
 }

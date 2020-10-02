@@ -29,6 +29,7 @@ import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.async.AsyncResponse;
 import com.artipie.http.client.ClientSlices;
+import com.artipie.http.client.auth.AuthClientSlice;
 import com.artipie.http.rq.RequestLine;
 import com.artipie.http.rq.RqMethod;
 import com.artipie.http.rs.RsFull;
@@ -49,7 +50,8 @@ import org.hamcrest.Matchers;
 import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.reactivestreams.Publisher;
 
 /**
@@ -71,11 +73,6 @@ final class JettyClientSlicesAndVertxITCase {
     private final JettyClientSlices clients = new JettyClientSlices();
 
     /**
-     * Server port.
-     */
-    private int port;
-
-    /**
      * Vertx slice server instance.
      */
     private VertxSliceServer server;
@@ -83,23 +80,22 @@ final class JettyClientSlicesAndVertxITCase {
     @BeforeEach
     void setUp() throws Exception {
         this.clients.start();
-        this.server = new VertxSliceServer(
-            JettyClientSlicesAndVertxITCase.VERTX,
-            new LoggingSlice(new ProxySlice(this.clients))
-        );
-        this.port = this.server.start();
     }
 
     @AfterEach
     void tearDown() throws Exception {
         this.clients.stop();
-        this.server.close();
+        if (this.server != null) {
+            this.server.close();
+        }
     }
 
-    @Test
-    void getsSomeContent() throws IOException {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void getsSomeContent(final boolean anonymous) throws IOException {
+        final int port = this.startServer(anonymous);
         final HttpURLConnection con = (HttpURLConnection)
-            new URL(String.format("http://localhost:%s", this.port)).openConnection();
+            new URL(String.format("http://localhost:%s", port)).openConnection();
         con.setRequestMethod("GET");
         MatcherAssert.assertThat(
             "Response status is 200",
@@ -114,6 +110,14 @@ final class JettyClientSlicesAndVertxITCase {
         con.disconnect();
     }
 
+    private int startServer(final boolean anonymous) {
+        this.server = new VertxSliceServer(
+            JettyClientSlicesAndVertxITCase.VERTX,
+            new LoggingSlice(new ProxySlice(this.clients, anonymous))
+        );
+        return this.server.start();
+    }
+
     /**
      * Test proxy slice.
      * @since 0.3
@@ -126,11 +130,18 @@ final class JettyClientSlicesAndVertxITCase {
         private final ClientSlices client;
 
         /**
+         * Anonymous flag.
+         */
+        private final boolean anonymous;
+
+        /**
          * Ctor.
          * @param client Http client
+         * @param anonymous Anonymous flag
          */
-        ProxySlice(final ClientSlices client) {
+        ProxySlice(final ClientSlices client, final boolean anonymous) {
             this.client = client;
+            this.anonymous = anonymous;
         }
 
         @Override
@@ -140,7 +151,14 @@ final class JettyClientSlicesAndVertxITCase {
             final Publisher<ByteBuffer> pub
         ) {
             final CompletableFuture<Response> promise = new CompletableFuture<>();
-            this.client.https("yandex.ru").response(
+            final Slice origin = this.client.https("yandex.ru");
+            final Slice slice;
+            if (this.anonymous) {
+                slice = origin;
+            } else {
+                slice = new AuthClientSlice(origin, ignored -> Headers.EMPTY);
+            }
+            slice.response(
                 new RequestLine(
                     RqMethod.GET, "/"
                 ).toString(),

@@ -39,10 +39,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.hamcrest.core.IsEqual;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -142,6 +146,32 @@ final class AuthClientSliceTest {
         MatcherAssert.assertThat(
             capture.get(),
             Matchers.containsInAnyOrder(original, auth)
+        );
+    }
+
+    @Test
+    void shouldNotCompleteOriginSentWhenAuthSentNotComplete() {
+        final AtomicReference<CompletionStage<Void>> capture = new AtomicReference<>();
+        new AuthClientSlice(
+            (line, headers, body) -> connection -> {
+                final CompletionStage<Void> sent = StandardRs.EMPTY.send(connection);
+                capture.set(sent);
+                return sent;
+            },
+            new FakeAuthenticator(Headers.EMPTY)
+        ).response(
+            new RequestLine(RqMethod.GET, "/path").toString(),
+            Headers.EMPTY,
+            Content.EMPTY
+        ).send(
+            (status, headers, body) -> new CompletableFuture<>()
+        );
+        Assertions.assertThrows(
+            TimeoutException.class,
+            () -> {
+                final int timeout = 500;
+                capture.get().toCompletableFuture().get(timeout, TimeUnit.MILLISECONDS);
+            }
         );
     }
 
