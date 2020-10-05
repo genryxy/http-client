@@ -27,6 +27,7 @@ import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
 import com.artipie.http.rs.RsStatus;
+import com.google.common.collect.Iterables;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
@@ -73,11 +74,16 @@ public final class AuthClientSlice implements Slice {
             (rsstatus, rsheaders, rsbody) -> {
                 final CompletionStage<Void> sent;
                 if (rsstatus == RsStatus.UNAUTHORIZED) {
-                    sent = this.origin.response(
-                        line,
-                        new Headers.From(headers, this.auth.authenticate(rsheaders)),
-                        body
-                    ).send(connection);
+                    final Headers second = this.auth.authenticate(rsheaders);
+                    if (Iterables.isEmpty(second)) {
+                        sent = connection.accept(rsstatus, rsheaders, rsbody);
+                    } else {
+                        sent = this.origin.response(
+                            line,
+                            new Headers.From(headers, second),
+                            body
+                        ).send(connection);
+                    }
                 } else {
                     sent = connection.accept(rsstatus, rsheaders, rsbody);
                 }
