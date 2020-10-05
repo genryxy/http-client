@@ -42,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -121,6 +122,28 @@ final class AuthClientSliceTest {
         MatcherAssert.assertThat(
             fake.capture(1),
             Matchers.containsInAnyOrder(rsheader)
+        );
+    }
+
+    @Test
+    void shouldAuthenticateOnceIfUnauthorizedButAnonymous() {
+        final AtomicInteger capture = new AtomicInteger();
+        new AuthClientSlice(
+            (line, headers, body) -> {
+                capture.incrementAndGet();
+                return new RsWithStatus(RsStatus.UNAUTHORIZED);
+            },
+            Authenticator.ANONYMOUS
+        ).response(
+            new RequestLine(RqMethod.GET, "/secret/resource").toString(),
+            Headers.EMPTY,
+            Content.EMPTY
+        ).send(
+            (status, headers, body) -> CompletableFuture.allOf()
+        ).toCompletableFuture().join();
+        MatcherAssert.assertThat(
+            capture.get(),
+            new IsEqual<>(1)
         );
     }
 

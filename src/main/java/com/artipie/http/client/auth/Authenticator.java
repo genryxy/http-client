@@ -34,6 +34,11 @@ import com.artipie.http.headers.Authorization;
 public interface Authenticator {
 
     /**
+     * Anonymous authorization. Always returns empty headers set.
+     */
+    Authenticator ANONYMOUS = ignored -> Headers.EMPTY;
+
+    /**
      * Get authorization headers.
      *
      * @param headers Headers with requirements for authorization.
