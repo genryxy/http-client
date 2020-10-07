@@ -44,6 +44,7 @@ class AuthenticatorBasicTest {
             StreamSupport.stream(
                 new Authenticator.Basic("Aladdin", "open sesame")
                     .authenticate(Headers.EMPTY)
+                    .toCompletableFuture().join()
                     .spliterator(),
                 false
             ).map(Header::new).collect(Collectors.toList()),

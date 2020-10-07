@@ -44,7 +44,9 @@ class GenericAuthenticatorTest {
     @Test
     void shouldProduceNothingWhenNoAuthRequested() {
         MatcherAssert.assertThat(
-            new GenericAuthenticator("alice", "qwerty").authenticate(Headers.EMPTY),
+            new GenericAuthenticator("alice", "qwerty")
+                .authenticate(Headers.EMPTY)
+                .toCompletableFuture().join(),
             new IsEqual<>(Headers.EMPTY)
         );
     }
@@ -53,9 +55,10 @@ class GenericAuthenticatorTest {
     void shouldProduceBasicHeaderWhenRequested() {
         MatcherAssert.assertThat(
             StreamSupport.stream(
-                new GenericAuthenticator("Aladdin", "open sesame").authenticate(
-                    new Headers.From(new WwwAuthenticate("Basic"))
-                ).spliterator(),
+                new GenericAuthenticator("Aladdin", "open sesame")
+                    .authenticate(new Headers.From(new WwwAuthenticate("Basic")))
+                    .toCompletableFuture().join()
+                    .spliterator(),
                 false
             ).map(Map.Entry::getKey).collect(Collectors.toList()),
             Matchers.contains(Authorization.NAME)
