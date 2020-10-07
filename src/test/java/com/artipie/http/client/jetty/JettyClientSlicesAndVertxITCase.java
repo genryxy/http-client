@@ -30,6 +30,7 @@ import com.artipie.http.Slice;
 import com.artipie.http.async.AsyncResponse;
 import com.artipie.http.client.ClientSlices;
 import com.artipie.http.client.auth.AuthClientSlice;
+import com.artipie.http.client.auth.Authenticator;
 import com.artipie.http.rq.RequestLine;
 import com.artipie.http.rq.RqMethod;
 import com.artipie.http.rs.RsFull;
@@ -156,7 +157,7 @@ final class JettyClientSlicesAndVertxITCase {
             if (this.anonymous) {
                 slice = origin;
             } else {
-                slice = new AuthClientSlice(origin, ignored -> Headers.EMPTY);
+                slice = new AuthClientSlice(origin, Authenticator.ANONYMOUS);
             }
             slice.response(
                 new RequestLine(

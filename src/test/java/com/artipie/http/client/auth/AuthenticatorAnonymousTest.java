@@ -42,7 +42,9 @@ class AuthenticatorAnonymousTest {
     void shouldProduceEmptyHeader() {
         MatcherAssert.assertThat(
             StreamSupport.stream(
-                Authenticator.ANONYMOUS.authenticate(Headers.EMPTY).spliterator(),
+                Authenticator.ANONYMOUS.authenticate(Headers.EMPTY)
+                    .toCompletableFuture().join()
+                    .spliterator(),
                 false
             ).map(Header::new).collect(Collectors.toList()),
             new IsEmptyCollection<>()

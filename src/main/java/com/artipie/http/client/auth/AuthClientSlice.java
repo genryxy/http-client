@@ -66,29 +66,36 @@ public final class AuthClientSlice implements Slice {
         final String line,
         final Iterable<Map.Entry<String, String>> headers,
         final Publisher<ByteBuffer> body) {
-        return connection -> this.origin.response(
-            line,
-            new Headers.From(headers, this.auth.authenticate(Headers.EMPTY)),
-            body
-        ).send(
-            (rsstatus, rsheaders, rsbody) -> {
-                final CompletionStage<Void> sent;
-                if (rsstatus == RsStatus.UNAUTHORIZED) {
-                    final Headers second = this.auth.authenticate(rsheaders);
-                    if (Iterables.isEmpty(second)) {
-                        sent = connection.accept(rsstatus, rsheaders, rsbody);
+        return connection -> this.auth.authenticate(Headers.EMPTY).thenCompose(
+            first -> this.origin.response(
+                line,
+                new Headers.From(headers, first),
+                body
+            ).send(
+                (rsstatus, rsheaders, rsbody) -> {
+                    final CompletionStage<Void> sent;
+                    if (rsstatus == RsStatus.UNAUTHORIZED) {
+                        sent = this.auth.authenticate(rsheaders).thenCompose(
+                            second -> {
+                                final CompletionStage<Void> result;
+                                if (Iterables.isEmpty(second)) {
+                                    result = connection.accept(rsstatus, rsheaders, rsbody);
+                                } else {
+                                    result = this.origin.response(
+                                        line,
+                                        new Headers.From(headers, second),
+                                        body
+                                    ).send(connection);
+                                }
+                                return result;
+                            }
+                        );
                     } else {
-                        sent = this.origin.response(
-                            line,
-                            new Headers.From(headers, second),
-                            body
-                        ).send(connection);
+                        sent = connection.accept(rsstatus, rsheaders, rsbody);
                     }
-                } else {
-                    sent = connection.accept(rsstatus, rsheaders, rsbody);
+                    return sent;
                 }
-                return sent;
-            }
+            )
         );
     }
 }

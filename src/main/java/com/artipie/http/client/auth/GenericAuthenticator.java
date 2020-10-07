@@ -25,6 +25,7 @@ package com.artipie.http.client.auth;
 
 import com.artipie.http.Headers;
 import com.artipie.http.headers.WwwAuthenticate;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.StreamSupport;
 
 /**
@@ -51,16 +52,13 @@ public final class GenericAuthenticator implements Authenticator {
     }
 
     @Override
-    public Headers authenticate(final Headers headers) {
+    public CompletionStage<Headers> authenticate(final Headers headers) {
         return StreamSupport.stream(headers.spliterator(), false)
             .filter(header -> header.getKey().equals(WwwAuthenticate.NAME))
             .findAny()
-            .map(
-                header -> this.authenticate(
-                    new WwwAuthenticate(header.getValue())
-                ).authenticate(headers)
-            )
-            .orElse(Headers.EMPTY);
+            .map(header -> this.authenticate(new WwwAuthenticate(header.getValue())))
+            .orElse(Authenticator.ANONYMOUS)
+            .authenticate(headers);
     }
 
     /**

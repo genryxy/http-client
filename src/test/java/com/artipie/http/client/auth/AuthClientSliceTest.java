@@ -230,12 +230,12 @@ final class AuthClientSliceTest {
         }
 
         @Override
-        public Headers authenticate(final Headers headers) {
+        public CompletionStage<Headers> authenticate(final Headers headers) {
             final List<Headers> prev = this.captures.get();
             final List<Headers> updated = new ArrayList<>(prev);
             updated.add(headers);
             this.captures.set(updated);
-            return this.results.get(prev.size());
+            return CompletableFuture.completedFuture(this.results.get(prev.size()));
         }
     }
 }
