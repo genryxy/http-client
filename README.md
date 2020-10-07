@@ -31,7 +31,7 @@ Slice slice = slices.https("artipie.com");
 Response response = slice.request(
   "GET /index.html HTTP/1.1",
   Headers.EMPTY,
-  Flowable.empty()
+  Content.EMPTY
 );
 response.send(
   (status, headers, body) -> {
@@ -39,6 +39,40 @@ response.send(
   }
 );
 ``` 
+
+## Create client for URI
+
+It is common and convenient to specify a target for HTTP client using URI,
+as it combines protocol, host and port in one string. URI may also contain non-empty path,
+so it will be prepended to every HTTP request sent to remote endpoint.
+`UriClientSlice` may be used to create client `Slice` from URI in the following way:
+
+```java
+ClientSlices slices = new JettyClientSlices();
+Slice slice = new UriClientSlice(
+  slices,
+  new URI("https://central.artipie.com:54321/my-repo")
+);
+```
+
+## Authentication
+
+Target endpoint may require authentication over HTTP protocol. 
+`AuthClientSlice` performs authentication automatically using provided `Authenticator` instance.
+Different `Authenticator` instances may support different authentication schemes 
+such as `Basic`, `Bearer`, `Digest` etc. 
+`GenericAuthenticator` performs authentication using scheme requested by target server 
+using specified username and password. 
+To enable authentication support using all supported authentication schemes 
+wrap `Slice` into `AuthClientSlice` and supply it with `GenericAuthenticator`:
+
+```java
+Slice slice = ...;
+Slice authenticated = new AuthClientSlice(
+  slice,
+  new GenericAuthenticator("username", "password")
+);
+```
 
 ## How to contribute
 
