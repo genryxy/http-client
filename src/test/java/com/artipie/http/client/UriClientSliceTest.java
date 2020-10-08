@@ -25,14 +25,12 @@ package com.artipie.http.client;
 
 import com.artipie.asto.Content;
 import com.artipie.http.Headers;
-import com.artipie.http.Slice;
 import com.artipie.http.rq.RequestLine;
 import com.artipie.http.rq.RequestLineFrom;
 import com.artipie.http.rq.RqMethod;
 import com.artipie.http.rs.StandardRs;
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.core.IsEqual;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -70,17 +68,17 @@ final class UriClientSliceTest {
         ).toCompletableFuture().join();
         MatcherAssert.assertThat(
             "Scheme is correct",
-            fake.csecure.get(),
+            fake.capturedSecure(),
             new IsEqual<>(secure)
         );
         MatcherAssert.assertThat(
             "Host is correct",
-            fake.chost.get(),
+            fake.capturedHost(),
             new IsEqual<>(host)
         );
         MatcherAssert.assertThat(
             "Port is correct",
-            fake.cport.get(),
+            fake.capturedPort(),
             new IsEqual<>(port)
         );
     }
@@ -117,73 +115,5 @@ final class UriClientSliceTest {
         ).send(
             (status, rsheaders, rsbody) -> CompletableFuture.allOf()
         ).toCompletableFuture().join();
-    }
-
-    /**
-     * Fake {@link ClientSlices} implementation that returns specified result
-     * and captures last method call.
-     *
-     * @since 0.3
-     */
-    private static class FakeClientSlices implements ClientSlices {
-
-        /**
-         * Captured scheme. True - secure HTTPS protocol, false - insecure HTTP.
-         */
-        private final AtomicReference<Boolean> csecure;
-
-        /**
-         * Captured host.
-         */
-        private final AtomicReference<String> chost;
-
-        /**
-         * Captured port.
-         */
-        private final AtomicReference<Integer> cport;
-
-        /**
-         * Slice returned by requests.
-         */
-        private final Slice result;
-
-        FakeClientSlices(final Slice result) {
-            this.result = result;
-            this.csecure = new AtomicReference<>();
-            this.chost = new AtomicReference<>();
-            this.cport = new AtomicReference<>();
-        }
-
-        @Override
-        public Slice http(final String host) {
-            this.csecure.set(false);
-            this.chost.set(host);
-            this.cport.set(null);
-            return this.result;
-        }
-
-        @Override
-        public Slice http(final String host, final int port) {
-            this.csecure.set(false);
-            this.chost.set(host);
-            this.cport.set(port);
-            return this.result;
-        }
-
-        @Override
-        public Slice https(final String host) {
-            this.csecure.set(true);
-            this.chost.set(host);
-            this.cport.set(null);
-            return this.result;
-        }
-
-        @Override
-        public Slice https(final String host, final int port) {
-            this.csecure.set(true);
-            this.chost.set(host);
-            this.cport.set(port);
-            return this.result;
-        }
     }
 }
