@@ -23,9 +23,12 @@
  */
 package com.artipie.http.client.auth;
 
+import com.artipie.asto.Content;
+import com.artipie.asto.ext.PublisherAs;
 import com.artipie.http.Headers;
 import com.artipie.http.Response;
 import com.artipie.http.Slice;
+import com.artipie.http.async.AsyncResponse;
 import com.artipie.http.rs.RsStatus;
 import com.google.common.collect.Iterables;
 import java.nio.ByteBuffer;
@@ -66,35 +69,39 @@ public final class AuthClientSlice implements Slice {
         final String line,
         final Iterable<Map.Entry<String, String>> headers,
         final Publisher<ByteBuffer> body) {
-        return connection -> this.auth.authenticate(Headers.EMPTY).thenCompose(
-            first -> this.origin.response(
-                line,
-                new Headers.From(headers, first),
-                body
-            ).send(
-                (rsstatus, rsheaders, rsbody) -> {
-                    final CompletionStage<Void> sent;
-                    if (rsstatus == RsStatus.UNAUTHORIZED) {
-                        sent = this.auth.authenticate(rsheaders).thenCompose(
-                            second -> {
-                                final CompletionStage<Void> result;
-                                if (Iterables.isEmpty(second)) {
-                                    result = connection.accept(rsstatus, rsheaders, rsbody);
-                                } else {
-                                    result = this.origin.response(
-                                        line,
-                                        new Headers.From(headers, second),
-                                        body
-                                    ).send(connection);
-                                }
-                                return result;
+        return new AsyncResponse(
+            new PublisherAs(body).bytes().thenApply(Content.From::new).thenApply(
+                copy -> connection -> this.auth.authenticate(Headers.EMPTY).thenCompose(
+                    first -> this.origin.response(
+                        line,
+                        new Headers.From(headers, first),
+                        copy
+                    ).send(
+                        (rsstatus, rsheaders, rsbody) -> {
+                            final CompletionStage<Void> sent;
+                            if (rsstatus == RsStatus.UNAUTHORIZED) {
+                                sent = this.auth.authenticate(rsheaders).thenCompose(
+                                    second -> {
+                                        final CompletionStage<Void> result;
+                                        if (Iterables.isEmpty(second)) {
+                                            result = connection.accept(rsstatus, rsheaders, rsbody);
+                                        } else {
+                                            result = this.origin.response(
+                                                line,
+                                                new Headers.From(headers, second),
+                                                copy
+                                            ).send(connection);
+                                        }
+                                        return result;
+                                    }
+                                );
+                            } else {
+                                sent = connection.accept(rsstatus, rsheaders, rsbody);
                             }
-                        );
-                    } else {
-                        sent = connection.accept(rsstatus, rsheaders, rsbody);
-                    }
-                    return sent;
-                }
+                            return sent;
+                        }
+                    )
+                )
             )
         );
     }
