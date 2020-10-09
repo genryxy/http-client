@@ -24,7 +24,9 @@
 package com.artipie.http.client.auth;
 
 import com.artipie.asto.Content;
+import com.artipie.asto.ext.PublisherAs;
 import com.artipie.http.Headers;
+import com.artipie.http.async.AsyncResponse;
 import com.artipie.http.headers.Authorization;
 import com.artipie.http.headers.Header;
 import com.artipie.http.rq.RequestLine;
@@ -195,6 +197,40 @@ final class AuthClientSliceTest {
                 final int timeout = 500;
                 capture.get().toCompletableFuture().get(timeout, TimeUnit.MILLISECONDS);
             }
+        );
+    }
+
+    @Test
+    void shouldPassRequestForBothAttempts() {
+        final Headers auth = new Headers.From("some", "header");
+        final byte[] request = "request".getBytes();
+        final AtomicReference<List<byte[]>> capture = new AtomicReference<>(new ArrayList<>(0));
+        new AuthClientSlice(
+            (line, headers, body) -> new AsyncResponse(
+                new PublisherAs(body).bytes().thenApply(
+                    bytes -> {
+                        capture.get().add(bytes);
+                        return new RsWithStatus(RsStatus.UNAUTHORIZED);
+                    }
+                )
+            ),
+            new FakeAuthenticator(auth, auth)
+        ).response(
+            new RequestLine(RqMethod.GET, "/api").toString(),
+            Headers.EMPTY,
+            new Content.OneTime(new Content.From(request))
+        ).send(
+            (status, headers, body) -> CompletableFuture.allOf()
+        ).toCompletableFuture().join();
+        MatcherAssert.assertThat(
+            "Body sent in first request",
+            capture.get().get(0),
+            new IsEqual<>(request)
+        );
+        MatcherAssert.assertThat(
+            "Body sent in second request",
+            capture.get().get(1),
+            new IsEqual<>(request)
         );
     }
 
