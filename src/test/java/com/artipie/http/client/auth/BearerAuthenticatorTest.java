@@ -50,19 +50,24 @@ class BearerAuthenticatorTest {
 
     @Test
     void shouldRequestTokenFromRealm() {
-        final AtomicReference<String> path = new AtomicReference<>();
+        final AtomicReference<String> capture = new AtomicReference<>();
         final FakeClientSlices fake = new FakeClientSlices(
             (rsline, rqheaders, rqbody) -> {
-                path.set(new RequestLineFrom(rsline).uri().getRawPath());
+                capture.set(new RequestLineFrom(rsline).uri().getRawPath());
                 return StandardRs.OK;
             }
         );
+        final String host = "artipie.com";
+        final int port = 321;
+        final String path = "/get_token";
         new BearerAuthenticator(
             fake,
             bytes -> "token"
         ).authenticate(
             new Headers.From(
-                new WwwAuthenticate("Bearer realm=\"https://artipie.com:321/get_token\"")
+                new WwwAuthenticate(
+                    String.format("Bearer realm=\"https://%s:%d%s\"", host, port, path)
+                )
             )
         ).toCompletableFuture().join();
         MatcherAssert.assertThat(
@@ -73,23 +78,24 @@ class BearerAuthenticatorTest {
         MatcherAssert.assertThat(
             "Host is correct",
             fake.capturedHost(),
-            new IsEqual<>("artipie.com")
+            new IsEqual<>(host)
         );
         MatcherAssert.assertThat(
             "Port is correct",
             fake.capturedPort(),
-            new IsEqual<>(321)
+            new IsEqual<>(port)
         );
         MatcherAssert.assertThat(
             "Path is correct",
-            path.get(),
-            new IsEqual<>("/get_token")
+            capture.get(),
+            new IsEqual<>(path)
         );
     }
 
     @Test
     void shouldProduceBearerHeaderUsingTokenFormat() {
-        final byte[] response = "{\"access_token\":\"mF_9.B5f-4.1JqM\"}".getBytes();
+        final String token = "mF_9.B5f-4.1JqM";
+        final byte[] response = String.format("{\"access_token\":\"%s\"}", token).getBytes();
         final AtomicReference<byte[]> captured = new AtomicReference<>();
         final Headers headers = new BearerAuthenticator(
             new FakeClientSlices(
@@ -97,7 +103,7 @@ class BearerAuthenticatorTest {
             ),
             bytes -> {
                 captured.set(bytes);
-                return "mF_9.B5f-4.1JqM";
+                return token;
             }
         ).authenticate(
             new Headers.From(new WwwAuthenticate("Bearer realm=\"http://localhost\""))
@@ -113,7 +119,7 @@ class BearerAuthenticatorTest {
                 headers.spliterator(),
                 false
             ).map(Header::new).collect(Collectors.toList()),
-            Matchers.contains(new Header("Authorization", "Bearer mF_9.B5f-4.1JqM"))
+            Matchers.contains(new Header("Authorization", String.format("Bearer %s", token)))
         );
     }
 }
