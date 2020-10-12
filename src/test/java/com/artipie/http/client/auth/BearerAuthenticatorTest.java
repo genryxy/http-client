@@ -31,6 +31,8 @@ import com.artipie.http.headers.WwwAuthenticate;
 import com.artipie.http.rq.RequestLineFrom;
 import com.artipie.http.rs.RsWithBody;
 import com.artipie.http.rs.StandardRs;
+import java.net.URI;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -50,10 +52,13 @@ class BearerAuthenticatorTest {
 
     @Test
     void shouldRequestTokenFromRealm() {
-        final AtomicReference<String> capture = new AtomicReference<>();
+        final AtomicReference<String> pathcapture = new AtomicReference<>();
+        final AtomicReference<String> querycapture = new AtomicReference<>();
         final FakeClientSlices fake = new FakeClientSlices(
             (rsline, rqheaders, rqbody) -> {
-                capture.set(new RequestLineFrom(rsline).uri().getRawPath());
+                final URI uri = new RequestLineFrom(rsline).uri();
+                pathcapture.set(uri.getRawPath());
+                querycapture.set(uri.getRawQuery());
                 return StandardRs.OK;
             }
         );
@@ -62,11 +67,15 @@ class BearerAuthenticatorTest {
         final String path = "/get_token";
         new BearerAuthenticator(
             fake,
-            bytes -> "token"
+            bytes -> "token",
+            Authenticator.ANONYMOUS
         ).authenticate(
             new Headers.From(
                 new WwwAuthenticate(
-                    String.format("Bearer realm=\"https://%s:%d%s\"", host, port, path)
+                    String.format(
+                        "Bearer realm=\"https://%s:%d%s\",param1=\"1\",param2=\"abc\"",
+                        host, port, path
+                    )
                 )
             )
         ).toCompletableFuture().join();
@@ -87,8 +96,39 @@ class BearerAuthenticatorTest {
         );
         MatcherAssert.assertThat(
             "Path is correct",
-            capture.get(),
+            pathcapture.get(),
             new IsEqual<>(path)
+        );
+        MatcherAssert.assertThat(
+            "Query is correct",
+            querycapture.get(),
+            new IsEqual<>("param1=1&param2=abc")
+        );
+    }
+
+    @Test
+    void shouldRequestTokenUsingAuthenticator() {
+        final AtomicReference<Iterable<java.util.Map.Entry<String, String>>> capture;
+        capture = new AtomicReference<>();
+        final Header auth = new Header("X-Header", "Value");
+        final FakeClientSlices fake = new FakeClientSlices(
+            (rsline, rqheaders, rqbody) -> {
+                capture.set(rqheaders);
+                return StandardRs.OK;
+            }
+        );
+        new BearerAuthenticator(
+            fake,
+            bytes -> "something",
+            ignored -> CompletableFuture.completedFuture(new Headers.From(auth))
+        ).authenticate(
+            new Headers.From(
+                new WwwAuthenticate("Bearer realm=\"https://whatever\"")
+            )
+        ).toCompletableFuture().join();
+        MatcherAssert.assertThat(
+            capture.get(),
+            Matchers.containsInAnyOrder(auth)
         );
     }
 
@@ -104,7 +144,8 @@ class BearerAuthenticatorTest {
             bytes -> {
                 captured.set(bytes);
                 return token;
-            }
+            },
+            Authenticator.ANONYMOUS
         ).authenticate(
             new Headers.From(new WwwAuthenticate("Bearer realm=\"http://localhost\""))
         ).toCompletableFuture().join();

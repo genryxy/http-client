@@ -36,6 +36,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 
 /**
  * Bearer authenticator using specified authenticator and format to get required token.
@@ -55,14 +56,25 @@ public final class BearerAuthenticator implements Authenticator {
     private final TokenFormat format;
 
     /**
+     * Token request authenticator.
+     */
+    private final Authenticator auth;
+
+    /**
      * Ctor.
      *
      * @param client Client slices.
      * @param format Token format.
+     * @param auth Token request authenticator.
      */
-    public BearerAuthenticator(final ClientSlices client, final TokenFormat format) {
+    public BearerAuthenticator(
+        final ClientSlices client,
+        final TokenFormat format,
+        final Authenticator auth
+    ) {
         this.client = client;
         this.format = format;
+        this.auth = auth;
     }
 
     @Override
@@ -83,9 +95,13 @@ public final class BearerAuthenticator implements Authenticator {
         } catch (final URISyntaxException ex) {
             throw new IllegalArgumentException(ex);
         }
+        final String query = header.params().stream()
+            .filter(param -> !param.name().equals("realm"))
+            .map(param -> String.format("%s=%s", param.name(), param.value()))
+            .collect(Collectors.joining("&"));
         final CompletableFuture<String> promise = new CompletableFuture<>();
-        return new UriClientSlice(this.client, realm).response(
-            new RequestLine(RqMethod.GET, "").toString(),
+        return new AuthClientSlice(new UriClientSlice(this.client, realm), this.auth).response(
+            new RequestLine(RqMethod.GET, String.format("?%s", query)).toString(),
             Headers.EMPTY,
             Content.EMPTY
         ).send(
