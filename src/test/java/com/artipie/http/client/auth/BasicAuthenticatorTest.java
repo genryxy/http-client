@@ -36,13 +36,13 @@ import org.junit.jupiter.api.Test;
  *
  * @since 0.3
  */
-class AuthenticatorBasicTest {
+class BasicAuthenticatorTest {
 
     @Test
     void shouldProduceBasicHeader() {
         MatcherAssert.assertThat(
             StreamSupport.stream(
-                new Authenticator.Basic("Aladdin", "open sesame")
+                new BasicAuthenticator("Aladdin", "open sesame")
                     .authenticate(Headers.EMPTY)
                     .toCompletableFuture().join()
                     .spliterator(),
