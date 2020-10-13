@@ -24,26 +24,42 @@
 package com.artipie.http.client.auth;
 
 import com.artipie.http.Headers;
+import com.artipie.http.headers.Authorization;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 /**
- * Authenticator for HTTP requests.
+ * Basic authenticator for given username and password.
  *
  * @since 0.3
  */
-public interface Authenticator {
+public final class BasicAuthenticator implements Authenticator {
 
     /**
-     * Anonymous authorization. Always returns empty headers set.
+     * Username.
      */
-    Authenticator ANONYMOUS = ignored -> CompletableFuture.completedFuture(Headers.EMPTY);
+    private final String username;
 
     /**
-     * Get authorization headers.
+     * Password.
+     */
+    private final String password;
+
+    /**
+     * Ctor.
      *
-     * @param headers Headers with requirements for authorization.
-     * @return Authorization headers.
+     * @param username Username.
+     * @param password Password.
      */
-    CompletionStage<Headers> authenticate(Headers headers);
+    public BasicAuthenticator(final String username, final String password) {
+        this.username = username;
+        this.password = password;
+    }
+
+    @Override
+    public CompletionStage<Headers> authenticate(final Headers headers) {
+        return CompletableFuture.completedFuture(
+            new Headers.From(new Authorization.Basic(this.username, this.password))
+        );
+    }
 }
