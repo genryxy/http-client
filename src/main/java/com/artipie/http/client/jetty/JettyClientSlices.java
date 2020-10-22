@@ -73,19 +73,6 @@ public final class JettyClientSlices implements ClientSlices {
     }
 
     /**
-     * Get HTTP client instance used by this class.
-     *
-     * @return HTTP client instance.
-     * @todo #1:30min Remove `client` method in `JettyClientSlice`.
-     *  For easier integration with Artipie `HttpClient` instance used in `JettyClientSlices`
-     *  has been exposed. It violates encapsulation and should be removed as soon as all Artipie
-     *  components use `ClientSlices` interface instead of direct usage of `HttpClient`.
-     */
-    public HttpClient client() {
-        return this.clnt;
-    }
-
-    /**
      * Prepare for usage.
      *
      * @throws Exception In case of any errors starting.
